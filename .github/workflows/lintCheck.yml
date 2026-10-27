@@ -1,0 +1,25 @@
+name: Lint Check
+run-name: Lint Check
+
+on:
+    pull_request:
+        branches:
+            - main
+        paths-ignore:
+            - '**/*.md'
+            - 'docs/**'
+
+
+    workflow_dispatch:
+
+jobs:
+    lint_check:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+
+            - name: GolangCI-Lint
+              uses: golangci/golangci-lint-action@v8
+              with:
+                working-directory: api
