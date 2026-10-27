@@ -47,3 +47,27 @@ The HTTP server listens on port `8081` and proxies these GET routes:
 - `/api/projects/{id}` (positive integer IDs)
 - `/api/experiences`
 - `/api/skill`
+
+## Set this variables
+
+
+```bash
+# Linux:
+    $env:BASE_URL = "http://localhost:8080"
+    $env:DB_URL = "localhost"
+    $env:DB_PORT = "5432"
+    $env:DB_NAME = "messaging_queue"
+    $env:POSTGRES_DB = "messaging_queue"
+    $env:POSTGRES_USER = "your_postgres_user"
+    $env:POSTGRES_PASS = "your_postgres_password"
+
+#Windows:
+    export BASE_URL = "http://localhost:8080"
+    export DB_URL = "localhost"
+    export DB_PORT = "5432"
+    export DB_NAME = "messaging_queue"
+    export POSTGRES_DB = "messaging_queue"
+    export POSTGRES_USER = "your_postgres_user"
+    export POSTGRES_PASS = "your_postgres_password"
+---
+```bash
