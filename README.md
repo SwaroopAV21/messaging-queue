@@ -35,7 +35,7 @@ is stored as PostgreSQL `JSONB`.
 
 ## GET proxy
 
-Set `UPSTREAM_BASE_URL` to the base URL of the service that provides project,
+Set `BASE_URL` to the base URL of the service that provides project,
 experience, and skill data. For local development this can be
 `http://localhost:8080`. In Docker Compose, use the upstream service's Compose
 service name instead of `localhost` (for example, `http://profile-service:8080`).
