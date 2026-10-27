@@ -9,7 +9,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/SwaroopAV21/messaging-queue/models"
+	"github.com/SwaroopAV21/messaging-queue/repository"
 )
+
 
 type getHandlers struct {
 	upstream *url.URL
@@ -36,15 +40,25 @@ func NewGetHandler(upstreamBaseURL string) (http.Handler, error) {
 	mux.HandleFunc("GET /api/projects/{id}", h.getProject)
 	mux.HandleFunc("GET /api/experiences", h.getExperiences)
 	mux.HandleFunc("GET /api/skill", h.getSkills)
+	mux.HandleFunc("GET /api/response", getResponses)
+	mux.HandleFunc("GET /api/request", getRequests)
 	return mux, nil
 }
 
 func (h *getHandlers) getProjects(w http.ResponseWriter, r *http.Request) {
-	h.proxy(w, r, "/api/projects")
+	requestProjects := models.Request {
+		Api: "/api/projects",
+		Method: r.Method,
+	}
+	h.proxy(w, r, requestProjects)
 }
 
 func (h *getHandlers) getFeaturedProjects(w http.ResponseWriter, r *http.Request) {
-	h.proxy(w, r, "/api/projects/featured")
+	requestFeaturedProjects := models.Request {
+		Api: "/api/projects/featured",
+		Method: r.Method,
+	}
+	h.proxy(w, r, requestFeaturedProjects)
 }
 
 func (h *getHandlers) getProject(w http.ResponseWriter, r *http.Request) {
@@ -54,20 +68,36 @@ func (h *getHandlers) getProject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "project id must be a positive integer", http.StatusBadRequest)
 		return
 	}
-	h.proxy(w, r, "/api/projects/"+strconv.FormatInt(projectID, 10))
+
+	requestProject := models.Request {
+		Api: "/api/projects/" + strconv.FormatInt(projectID, 10),
+		Method: r.Method,
+	}
+
+	h.proxy(w, r, requestProject)
 }
 
 func (h *getHandlers) getExperiences(w http.ResponseWriter, r *http.Request) {
-	h.proxy(w, r, "/api/experiences")
+	
+	requestExperiences := models.Request {
+		Api: "/api/experiences",
+		Method: r.Method,
+	}
+	h.proxy(w, r, requestExperiences)
 }
 
 func (h *getHandlers) getSkills(w http.ResponseWriter, r *http.Request) {
-	h.proxy(w, r, "/api/skill")
+	
+	requestSkills := models.Request {
+		Api: "/api/skill",
+		Method: r.Method,
+	}
+	h.proxy(w, r, requestSkills)
 }
 
-func (h *getHandlers) proxy(w http.ResponseWriter, r *http.Request, endpoint string) {
+func (h *getHandlers) proxy(w http.ResponseWriter, r *http.Request, requestObj models.Request) {
 	upstreamURL := *h.upstream
-	upstreamURL.Path = strings.TrimRight(upstreamURL.Path, "/") + endpoint
+	upstreamURL.Path = strings.TrimRight(upstreamURL.Path, "/") + requestObj.Api
 	upstreamURL.RawQuery = r.URL.RawQuery
 
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, upstreamURL.String(), nil)
@@ -80,10 +110,13 @@ func (h *getHandlers) proxy(w http.ResponseWriter, r *http.Request, endpoint str
 	}
 
 	resp, err := h.client.Do(req)
+
+
 	if err != nil {
 		http.Error(w, "upstream service unavailable", http.StatusBadGateway)
 		return
 	}
+
 	defer resp.Body.Close()
 
 	if contentType := resp.Header.Get("Content-Type"); contentType != "" {
@@ -96,4 +129,18 @@ func (h *getHandlers) proxy(w http.ResponseWriter, r *http.Request, endpoint str
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		log.Printf("copy upstream response body: %v", err)
 	}
+
+	responseObj := models.Response {
+		RequestID: requestObj.RequestID,
+		Api: requestObj.Api,         
+		ReturnCode: resp.StatusCode,
+		RequestStatus: resp.Status,
+	}
+
+	if err := repository.SaveToDB(r.Context(), responseObj); err != nil {
+    	log.Printf("save response: %v", err)
+    	http.Error(w, "could not save response", http.StatusInternalServerError)
+    	return
+	}
+
 }

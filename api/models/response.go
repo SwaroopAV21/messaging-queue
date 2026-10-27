@@ -2,12 +2,13 @@ package models
 
 import (
 	"time"
+
 )
 
 type Status int
 
 const (
-	Waiting    Status = -1
+	NOTGOOD    Status = -1
 	PROCESSING Status = 1
 	COMPLETE   Status = 0
 )
@@ -15,9 +16,8 @@ const (
 type Response struct {
 	RequestID     int64           `json:"requestID"`
 	Api           string          `json:"requestAPI"`
-	Response      ProfileResponse `json:"response"`
 	ReturnCode    int             `json:"rc"`
-	RequestStatus Status          `json:"status"`
+	RequestStatus string          `json:"status"`
 }
 
 type ProfileResponse struct {
@@ -35,20 +35,3 @@ type ProfileResponse struct {
 	EndDate     *time.Time `json:"endDate"`
 }
 
-func (resp *Response) MaptoResponse(profileResponse *ProfileResponse, request Request) (Response, bool) {
-	if profileResponse == nil {
-		return Response{}, false
-	}
-
-	resp.RequestID = request.RequestID
-	resp.Api = request.Api
-	resp.ReturnCode = request.ReturnCode
-	if request.ReturnCode == 200 {
-		resp.RequestStatus = COMPLETE
-	} else {
-		resp.RequestStatus = PROCESSING
-	}
-	resp.Response = *profileResponse
-
-	return *resp, true
-}
