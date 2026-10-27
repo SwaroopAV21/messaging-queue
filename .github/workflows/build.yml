@@ -12,6 +12,11 @@ on:
   #workflow_dispatch:
 
   workflow_call:
+    inputs:
+      workflow_callType:
+        type: string
+        required: false
+        default: 'workflow_dispatch' 
     secrets:
         DOCKERHUB_USERNAME:
             required: true
@@ -27,6 +32,13 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         - name: Checkout Repo
+          if: ${{ inputs.workflow_callType == 'workflow_dispatch' }}
+          uses: actions/checkout@v6
+          with:
+            path: goMiddleware
+
+        - name: Checkout Repo
+          if: ${{ inputs.workflow_callType == 'workflow_call' }}
           uses: actions/checkout@v6
           with:
             repository: SwaroopAV21/messaging-queue
