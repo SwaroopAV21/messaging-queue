@@ -17,6 +17,7 @@ import (
 
 func main() {
 	if err := run(); err != nil {
+		fmt.Println("application error:", err)
 		log.Fatal(err)
 	}
 }
@@ -24,14 +25,17 @@ func main() {
 func run() error {
 	upstreamBaseURL := os.Getenv("BASE_URL")
 	if upstreamBaseURL == "" {
+		fmt.Println("error: BASE_URL is not set")
 		return fmt.Errorf("BASE_URL is not set")
 	}
 	getHandler, err := handlers.NewGetHandler(upstreamBaseURL)
 	if err != nil {
+		fmt.Println("configure GET handlers:", err)
 		return fmt.Errorf("configure GET handlers: %w", err)
 	}
 
 	if err := repository.InitDB(context.Background()); err != nil {
+		fmt.Println("initialize database:", err)
 		return fmt.Errorf("initialize database: %w", err)
 	}
 	defer repository.DB.Close()
@@ -60,6 +64,7 @@ func run() error {
 	select {
 	case err := <-serverErrors:
 		if !errors.Is(err, http.ErrServerClosed) {
+			fmt.Println("HTTP server stopped:", err)
 			return fmt.Errorf("HTTP server stopped: %w", err)
 		}
 		return nil
@@ -69,11 +74,13 @@ func run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
+		fmt.Println("shut down HTTP server:", err)
 		_ = server.Close()
 		return fmt.Errorf("shut down HTTP server: %w", err)
 	}
 
 	if err := <-serverErrors; err != nil && !errors.Is(err, http.ErrServerClosed) {
+		fmt.Println("HTTP server stopped:", err)
 		return fmt.Errorf("HTTP server stopped: %w", err)
 	}
 	return nil

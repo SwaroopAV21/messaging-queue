@@ -35,49 +35,64 @@ func InitDB(ctx context.Context) error {
 		dbName = postgresDB
 	}
 	if dbName == "" {
+		fmt.Println("error: DB_NAME or POSTGRES_DB must be set")
 		return fmt.Errorf("DB_NAME or POSTGRES_DB must be set")
 	}
 	if postgresDB != "" && dbName != postgresDB {
+		fmt.Println("error: DB_NAME and POSTGRES_DB must have the same value")
 		return fmt.Errorf("DB_NAME and POSTGRES_DB must have the same value")
 	}
 
 	host := os.Getenv("DB_URL")
 	if host == "" {
+		fmt.Println("error: DB_URL is not set")
 		return fmt.Errorf("DB_URL is not set")
 	}
 	port := os.Getenv("DB_PORT")
 	if port == "" {
+		fmt.Println("error: DB_PORT is not set")
 		return fmt.Errorf("DB_PORT is not set")
 	}
 	portNumber, err := strconv.Atoi(port)
 	if err != nil || portNumber < 1 || portNumber > 65535 {
+		if err != nil {
+			fmt.Println("parse DB_PORT:", err)
+		} else {
+			fmt.Println("error: DB_PORT must be a valid TCP port")
+		}
 		return fmt.Errorf("DB_PORT must be a valid TCP port")
 	}
 
 	user := os.Getenv("POSTGRES_USER")
 	if user == "" {
+		fmt.Println("error: POSTGRES_USER is not set")
 		return fmt.Errorf("POSTGRES_USER is not set")
 	}
 	password, exists := os.LookupEnv("POSTGRES_PASS")
 	if !exists {
+		fmt.Println("error: POSTGRES_PASS is not set")
 		return fmt.Errorf("POSTGRES_PASS is not set")
 	}
 
 	adminDSN := postgresDSN(host, port, user, password, "postgres")
 	targetDSN := postgresDSN(host, port, user, password, dbName)
 	if err := ensureDatabase(ctx, adminDSN, dbName); err != nil {
+		fmt.Println("ensure database:", err)
 		return err
 	}
 
 	db, err := sql.Open("pgx", targetDSN)
 	if err != nil {
+		fmt.Println("open PostgreSQL connection:", err)
 		return fmt.Errorf("open PostgreSQL connection: %w", err)
 	}
 	if err := db.PingContext(ctx); err != nil {
+		fmt.Println("connect to PostgreSQL:", err)
 		_ = db.Close()
 		return fmt.Errorf("connect to PostgreSQL: %w", err)
 	}
 	if err := InitializeSchema(ctx, db); err != nil {
+		fmt.Println("initialize database schema:", err)
 		_ = db.Close()
 		return err
 	}
@@ -98,16 +113,19 @@ func postgresDSN(host, port, user, password, dbName string) string {
 
 func ensureDatabase(ctx context.Context, adminDSN, dbName string) error {
 	if !dbNamePattern.MatchString(dbName) {
+		fmt.Println("error: invalid database name")
 		return fmt.Errorf("invalid database name %q", dbName)
 	}
 
 	db, err := sql.Open("pgx", adminDSN)
 	if err != nil {
+		fmt.Println("open admin connection:", err)
 		return fmt.Errorf("open admin connection: %w", err)
 	}
 	defer db.Close()
 
 	if err := db.PingContext(ctx); err != nil {
+		fmt.Println("connect to PostgreSQL:", err)
 		return fmt.Errorf("connect to PostgreSQL: %w", err)
 	}
 
@@ -117,6 +135,7 @@ func ensureDatabase(ctx context.Context, adminDSN, dbName string) error {
 		`SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)`,
 		dbName,
 	).Scan(&exists); err != nil {
+		fmt.Println("check database existence:", err)
 		return fmt.Errorf("check database existence: %w", err)
 	}
 	if exists {
@@ -124,6 +143,7 @@ func ensureDatabase(ctx context.Context, adminDSN, dbName string) error {
 	}
 
 	if _, err := db.ExecContext(ctx, `CREATE DATABASE "`+dbName+`"`); err != nil {
+		fmt.Println("create database:", err)
 		return fmt.Errorf("create database %q: %w", dbName, err)
 	}
 	return nil
@@ -148,9 +168,11 @@ func InitializeSchema(ctx context.Context, db *sql.DB) error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`
 	if _, err := db.ExecContext(ctx, schema); err != nil {
+		fmt.Println("initialize responses table:", err)
 		return fmt.Errorf("initialize responses table: %w", err)
 	}
-	if _,err := db.ExecContext(ctx, requestSchema); err != nil {
+	if _, err := db.ExecContext(ctx, requestSchema); err != nil {
+		fmt.Println("initialize requests table:", err)
 		return fmt.Errorf("Initialization resquest table: %w", err)
 	}
 	return nil
@@ -158,6 +180,7 @@ func InitializeSchema(ctx context.Context, db *sql.DB) error {
 
 func SaveToDB(ctx context.Context, response models.Response) error {
 	if DB == nil {
+		fmt.Println("error: database is not initialized; call InitDB first")
 		return fmt.Errorf("database is not initialized; call InitDB first")
 	}
 
@@ -173,79 +196,88 @@ func SaveToDB(ctx context.Context, response models.Response) error {
 		response.ReturnCode,
 		response.RequestStatus,
 	); err != nil {
+		fmt.Println("save response:", err)
 		return fmt.Errorf("save response: %w", err)
 	}
 	return nil
 }
 
 func GetResponses(ctx context.Context) ([]models.Response, error) {
-    if DB == nil {
-        return nil, fmt.Errorf("database is not initialized; call InitDB first")
-    }
+	if DB == nil {
+		fmt.Println("error: database is not initialized; call InitDB first")
+		return nil, fmt.Errorf("database is not initialized; call InitDB first")
+	}
 
-    rows, err := DB.QueryContext(ctx, `
+	rows, err := DB.QueryContext(ctx, `
         SELECT request_id, request_api, return_code, status
         FROM responses
         ORDER BY created_at DESC
     `)
-    if err != nil {
-        return nil, fmt.Errorf("query responses: %w", err)
-    }
-    defer rows.Close()
+	if err != nil {
+		fmt.Println("query responses:", err)
+		return nil, fmt.Errorf("query responses: %w", err)
+	}
+	defer rows.Close()
 
-    responses := make([]models.Response, 0)
-    for rows.Next() {
-        var item models.Response
+	responses := make([]models.Response, 0)
+	for rows.Next() {
+		var item models.Response
 
-        if err := rows.Scan(
-            &item.RequestID,
-            &item.Api,
-            &item.ReturnCode,
-            &item.RequestStatus,
-        ); err != nil {
-            return nil, fmt.Errorf("scan response: %w", err)
-        }
-        responses = append(responses, item)
-    }
+		if err := rows.Scan(
+			&item.RequestID,
+			&item.Api,
+			&item.ReturnCode,
+			&item.RequestStatus,
+		); err != nil {
+			fmt.Println("scan response:", err)
+			return nil, fmt.Errorf("scan response: %w", err)
+		}
+		responses = append(responses, item)
+	}
 
-    if err := rows.Err(); err != nil {
-        return nil, fmt.Errorf("iterate responses: %w", err)
-    }
-    return responses, nil
+	if err := rows.Err(); err != nil {
+		fmt.Println("iterate responses:", err)
+		return nil, fmt.Errorf("iterate responses: %w", err)
+	}
+	return responses, nil
 }
 
 func GetRequests(ctx context.Context) ([]models.Request, error) {
-    if DB == nil {
-        return nil, fmt.Errorf("database is not initialized; call InitDB first")
-    }
+	if DB == nil {
+		fmt.Println("error: database is not initialized; call InitDB first")
+		return nil, fmt.Errorf("database is not initialized; call InitDB first")
+	}
 
-    rows, err := DB.QueryContext(ctx, `
+	rows, err := DB.QueryContext(ctx, `
         SELECT request_id, request_api, method, returncode
         FROM requests
         ORDER BY created_at DESC
     `)
-    if err != nil {
-        return nil, fmt.Errorf("query responses: %w", err)
-    }
-    defer rows.Close()
+	if err != nil {
+		fmt.Println("query requests:", err)
+		return nil, fmt.Errorf("query responses: %w", err)
+	}
+	defer rows.Close()
 
-    responses := make([]models.Request, 0)
-    for rows.Next() {
-        var item models.Request
+	responses := make([]models.Request, 0)
+	for rows.Next() {
+		var item models.Request
 
-        if err := rows.Scan(
-            &item.RequestID,
-            &item.Api,
-            &item.Method,
-            &item.ReturnCode,
-        ); err != nil {
-            return nil, fmt.Errorf("scan response: %w", err)
-        }
-        responses = append(responses, item)
-    }
+		if err := rows.Scan(
+			&item.RequestID,
+			&item.Api,
+			&item.Method,
+			&item.ReturnCode,
+		); err != nil {
+			fmt.Println("scan request:", err)
+			return nil, fmt.Errorf("scan response: %w", err)
+		}
+		responses = append(responses, item)
+	}
 
-    if err := rows.Err(); err != nil {
-        return nil, fmt.Errorf("iterate responses: %w", err)
-    }
-    return responses, nil
+	if err := rows.Err(); err != nil {
+		fmt.Println("iterate requests:", err)
+		return nil, fmt.Errorf("iterate responses: %w", err)
+	}
+	return responses, nil
 }

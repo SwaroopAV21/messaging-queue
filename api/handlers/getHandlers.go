@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,7 +13,6 @@ import (
 	"github.com/SwaroopAV21/messaging-queue/repository"
 )
 
-
 type getHandlers struct {
 	upstream *url.URL
 	client   *http.Client
@@ -23,10 +21,12 @@ type getHandlers struct {
 func NewGetHandler(upstreamBaseURL string) (http.Handler, error) {
 	upstream, err := url.Parse(strings.TrimRight(upstreamBaseURL, "/"))
 	if err != nil {
+		fmt.Println("parse upstream base URL:", err)
 		return nil, fmt.Errorf("parse upstream base URL: %w", err)
 	}
 	if (upstream.Scheme != "http" && upstream.Scheme != "https") || upstream.Host == "" ||
 		upstream.User != nil || upstream.RawQuery != "" || upstream.Fragment != "" {
+		fmt.Println("error: upstream base URL must be an HTTP(S) URL without credentials, query, or fragment")
 		return nil, fmt.Errorf("upstream base URL must be an HTTP(S) URL without credentials, query, or fragment")
 	}
 
@@ -46,16 +46,16 @@ func NewGetHandler(upstreamBaseURL string) (http.Handler, error) {
 }
 
 func (h *getHandlers) getProjects(w http.ResponseWriter, r *http.Request) {
-	requestProjects := models.Request {
-		Api: "/api/projects",
+	requestProjects := models.Request{
+		Api:    "/api/projects",
 		Method: r.Method,
 	}
 	h.proxy(w, r, requestProjects)
 }
 
 func (h *getHandlers) getFeaturedProjects(w http.ResponseWriter, r *http.Request) {
-	requestFeaturedProjects := models.Request {
-		Api: "/api/projects/featured",
+	requestFeaturedProjects := models.Request{
+		Api:    "/api/projects/featured",
 		Method: r.Method,
 	}
 	h.proxy(w, r, requestFeaturedProjects)
@@ -65,12 +65,17 @@ func (h *getHandlers) getProject(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	projectID, err := strconv.ParseInt(id, 10, 64)
 	if err != nil || projectID < 1 {
+		if err != nil {
+			fmt.Println("parse project ID:", err)
+		} else {
+			fmt.Println("error: project ID must be a positive integer")
+		}
 		http.Error(w, "project id must be a positive integer", http.StatusBadRequest)
 		return
 	}
 
-	requestProject := models.Request {
-		Api: "/api/projects/" + strconv.FormatInt(projectID, 10),
+	requestProject := models.Request{
+		Api:    "/api/projects/" + strconv.FormatInt(projectID, 10),
 		Method: r.Method,
 	}
 
@@ -78,18 +83,18 @@ func (h *getHandlers) getProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *getHandlers) getExperiences(w http.ResponseWriter, r *http.Request) {
-	
-	requestExperiences := models.Request {
-		Api: "/api/experiences",
+
+	requestExperiences := models.Request{
+		Api:    "/api/experiences",
 		Method: r.Method,
 	}
 	h.proxy(w, r, requestExperiences)
 }
 
 func (h *getHandlers) getSkills(w http.ResponseWriter, r *http.Request) {
-	
-	requestSkills := models.Request {
-		Api: "/api/skills/grouped",
+
+	requestSkills := models.Request{
+		Api:    "/api/skills/grouped",
 		Method: r.Method,
 	}
 	h.proxy(w, r, requestSkills)
@@ -102,6 +107,7 @@ func (h *getHandlers) proxy(w http.ResponseWriter, r *http.Request, requestObj m
 
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, upstreamURL.String(), nil)
 	if err != nil {
+		fmt.Println("create upstream request:", err)
 		http.Error(w, "could not create upstream request", http.StatusInternalServerError)
 		return
 	}
@@ -111,8 +117,8 @@ func (h *getHandlers) proxy(w http.ResponseWriter, r *http.Request, requestObj m
 
 	resp, err := h.client.Do(req)
 
-
 	if err != nil {
+		fmt.Println("send upstream request:", err)
 		http.Error(w, "upstream service unavailable", http.StatusBadGateway)
 		return
 	}
@@ -127,20 +133,20 @@ func (h *getHandlers) proxy(w http.ResponseWriter, r *http.Request, requestObj m
 	}
 	w.WriteHeader(resp.StatusCode)
 	if _, err := io.Copy(w, resp.Body); err != nil {
-		log.Printf("copy upstream response body: %v", err)
+		fmt.Println("copy upstream response body:", err)
 	}
 
-	responseObj := models.Response {
-		RequestID: requestObj.RequestID,
-		Api: requestObj.Api,         
-		ReturnCode: resp.StatusCode,
+	responseObj := models.Response{
+		RequestID:     requestObj.RequestID,
+		Api:           requestObj.Api,
+		ReturnCode:    resp.StatusCode,
 		RequestStatus: resp.Status,
 	}
 
 	if err := repository.SaveToDB(r.Context(), responseObj); err != nil {
-    	log.Printf("save response: %v", err)
-    	http.Error(w, "could not save response", http.StatusInternalServerError)
-    	return
+		fmt.Println("save response:", err)
+		http.Error(w, "could not save response", http.StatusInternalServerError)
+		return
 	}
 
 }
