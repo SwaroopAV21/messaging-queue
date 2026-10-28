@@ -36,9 +36,14 @@ func run() error {
 	}
 	defer repository.DB.Close()
 
+	corsOrigin := os.Getenv("CORS_ORIGIN")
+	if corsOrigin == "" {
+		corsOrigin = "http://localhost:5173"
+	}
+
 	server := &http.Server{
 		Addr:              ":8081",
-		Handler:           getHandler,
+		Handler:           corsMiddleware(getHandler, corsOrigin),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

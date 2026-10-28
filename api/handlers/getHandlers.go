@@ -35,13 +35,13 @@ func NewGetHandler(upstreamBaseURL string) (http.Handler, error) {
 		client:   &http.Client{Timeout: 15 * time.Second},
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/projects", h.getProjects)
-	mux.HandleFunc("GET /api/projects/featured", h.getFeaturedProjects)
-	mux.HandleFunc("GET /api/projects/{id}", h.getProject)
-	mux.HandleFunc("GET /api/experiences", h.getExperiences)
-	mux.HandleFunc("GET /api/skill", h.getSkills)
-	mux.HandleFunc("GET /api/response", getResponses)
-	mux.HandleFunc("GET /api/request", getRequests)
+	mux.HandleFunc("GET /api/middleware/projects", h.getProjects)
+	mux.HandleFunc("GET /api/middleware/projects/featured", h.getFeaturedProjects)
+	mux.HandleFunc("GET /api/middleware/projects/{id}", h.getProject)
+	mux.HandleFunc("GET /api/middleware/experiences", h.getExperiences)
+	mux.HandleFunc("GET /api/middleware/skill", h.getSkills)
+	mux.HandleFunc("GET /api/middleware/responses", getResponses)
+	mux.HandleFunc("GET /api/middleware/requests", getRequests)
 	return mux, nil
 }
 
@@ -89,7 +89,7 @@ func (h *getHandlers) getExperiences(w http.ResponseWriter, r *http.Request) {
 func (h *getHandlers) getSkills(w http.ResponseWriter, r *http.Request) {
 	
 	requestSkills := models.Request {
-		Api: "/api/skill",
+		Api: "/api/skills/grouped",
 		Method: r.Method,
 	}
 	h.proxy(w, r, requestSkills)

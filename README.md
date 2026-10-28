@@ -42,11 +42,15 @@ service name instead of `localhost` (for example, `http://profile-service:8080`)
 
 The HTTP server listens on port `8081` and proxies these GET routes:
 
-- `/api/projects`
-- `/api/projects/featured`
-- `/api/projects/{id}` (positive integer IDs)
-- `/api/experiences`
-- `/api/skill`
+- `/api/middleware/projects`
+- `/api/middleware/projects/featured`
+- `/api/middleware/projects/{id}` (positive integer IDs)
+- `/api/middleware/experiences`
+- `/api/middleware/skill`
+
+Cross-origin browser requests are allowed from `http://localhost:3000` by
+default. Set `CORS_ORIGIN` to the frontend's exact origin (including scheme
+and port) when it differs, for example `https://app.example.com`.
 
 ## Set this variables
 
@@ -60,6 +64,7 @@ The HTTP server listens on port `8081` and proxies these GET routes:
     $env:POSTGRES_DB = "messaging_queue"
     $env:POSTGRES_USER = "your_postgres_user"
     $env:POSTGRES_PASS = "your_postgres_password"
+    $env:CORS_ORIGIN = "http://localhost:3000"
 
 #Windows:
     export BASE_URL = "http://localhost:8080"
@@ -69,5 +74,6 @@ The HTTP server listens on port `8081` and proxies these GET routes:
     export POSTGRES_DB = "messaging_queue"
     export POSTGRES_USER = "your_postgres_user"
     export POSTGRES_PASS = "your_postgres_password"
+    export CORS_ORIGIN = "http://localhost:3000"
 ---
 ```bash
