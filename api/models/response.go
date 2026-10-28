@@ -16,8 +16,10 @@ const (
 type Response struct {
 	RequestID     int64           `json:"requestID"`
 	Api           string          `json:"requestAPI"`
+	Method        string          `josn:"method"`
 	ReturnCode    int             `json:"rc"`
 	RequestStatus string          `json:"status"`
+	CalledAT	  *time.Time	  `josn:"calledAt"`
 }
 
 type ProfileResponse struct {

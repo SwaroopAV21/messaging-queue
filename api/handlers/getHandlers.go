@@ -41,7 +41,6 @@ func NewGetHandler(upstreamBaseURL string) (http.Handler, error) {
 	mux.HandleFunc("GET /api/middleware/experiences", h.getExperiences)
 	mux.HandleFunc("GET /api/middleware/skill", h.getSkills)
 	mux.HandleFunc("GET /api/middleware/responses", getResponses)
-	mux.HandleFunc("GET /api/middleware/requests", getRequests)
 	return mux, nil
 }
 
@@ -119,6 +118,8 @@ func (h *getHandlers) proxy(w http.ResponseWriter, r *http.Request, requestObj m
 
 	if err != nil {
 		fmt.Println("send upstream request:", err)
+		requestObj.ReturnCode = http.StatusBadGateway
+		writeToDB(r, nil, w, requestObj)
 		http.Error(w, "upstream service unavailable", http.StatusBadGateway)
 		return
 	}
@@ -136,11 +137,29 @@ func (h *getHandlers) proxy(w http.ResponseWriter, r *http.Request, requestObj m
 		fmt.Println("copy upstream response body:", err)
 	}
 
+	writeToDB(r, resp, w, requestObj)
+
+}
+
+func writeToDB(r *http.Request, resp *http.Response, w http.ResponseWriter, requestObj models.Request) {
+
+	//later can add go routines to saveDB func
+	var returnCode int
+	var status string
+
+	if resp == nil{
+		returnCode = requestObj.ReturnCode
+		status = fmt.Sprintf("%d %s", returnCode, http.StatusText(returnCode))
+	} else {
+		returnCode = resp.StatusCode
+		status = fmt.Sprintf("%d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+	}
+
 	responseObj := models.Response{
-		RequestID:     requestObj.RequestID,
 		Api:           requestObj.Api,
-		ReturnCode:    resp.StatusCode,
-		RequestStatus: resp.Status,
+		Method:        requestObj.Method,
+		ReturnCode:    returnCode,
+		RequestStatus: status,
 	}
 
 	if err := repository.SaveToDB(r.Context(), responseObj); err != nil {
@@ -148,5 +167,4 @@ func (h *getHandlers) proxy(w http.ResponseWriter, r *http.Request, requestObj m
 		http.Error(w, "could not save response", http.StatusInternalServerError)
 		return
 	}
-
 }
